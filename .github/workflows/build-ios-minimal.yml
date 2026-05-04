@@ -1,0 +1,97 @@
+name: Build Mirai for iOS (clouds + sun/moon only)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ios-minimal]
+
+jobs:
+  build-minimal:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Mirai source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Lazurite
+        run: pip install lazurite
+
+      - name: Download shaderc
+        run: |
+          curl -L -o shaderc.zip \
+            "https://github.com/bambosan/bgfx-mcbe/releases/download/binaries/shaderc-linux-x64.zip"
+          unzip shaderc.zip
+          if [ -f shadercRelease ]; then mv shadercRelease shaderc; fi
+          chmod +x shaderc
+
+      - name: Build VC subpack with iOS shaders
+        run: |
+          mkdir -p build_full
+          python -m lazurite build ./src \
+            -p ios shading vclouds \
+            -o build_full \
+            --shaderc ./shaderc
+
+      - name: Keep only clouds, sun/moon, stars, populate-volume
+        run: |
+          mkdir -p mirai_minimal/renderer/materials
+          mkdir -p mirai_minimal/textures
+
+          cp build_full/CloudsForwardPBR.material.bin mirai_minimal/renderer/materials/
+          cp build_full/SunMoonForwardPBR.material.bin mirai_minimal/renderer/materials/
+          cp build_full/StarsForwardPBR.material.bin mirai_minimal/renderer/materials/
+          cp build_full/PopulateVolume.material.bin mirai_minimal/renderer/materials/
+
+          if [ -f pack/textures/rand.png ]; then
+            cp pack/textures/rand.png mirai_minimal/textures/
+          fi
+          if [ -f pack/pack_icon.png ]; then
+            cp pack/pack_icon.png mirai_minimal/
+          fi
+
+          ls -la mirai_minimal/renderer/materials/
+
+      - name: Create manifest.json
+        run: |
+          python3 -c "
+          import uuid, json
+          m = {
+            'format_version': 2,
+            'header': {
+              'name': 'Mirai Clouds + Sun/Moon (iOS minimal)',
+              'description': 'Volumetric clouds, sun, moon, stars from Mirai 2.1.1\nMinimal extract for iOS - blocks render vanilla.',
+              'uuid': str(uuid.uuid4()),
+              'version': [1, 0, 0],
+              'min_engine_version': [1, 26, 10]
+            },
+            'modules': [{
+              'description': 'Mirai minimal extract',
+              'type': 'resources',
+              'uuid': str(uuid.uuid4()),
+              'version': [1, 0, 0]
+            }],
+            'capabilities': ['pbr']
+          }
+          with open('mirai_minimal/manifest.json','w') as f:
+              json.dump(m, f, indent=2)
+          "
+          cat mirai_minimal/manifest.json
+
+      - name: Package as .mcpack
+        run: |
+          cd mirai_minimal
+          zip -r ../mirai-ios-minimal.mcpack . -x "*.DS_Store"
+          cd ..
+          ls -la mirai-ios-minimal.mcpack
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mirai-ios-minimal-mcpack
+          path: mirai-ios-minimal.mcpack
+          retention-days: 30
