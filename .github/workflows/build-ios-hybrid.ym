@@ -1,0 +1,137 @@
+name: Build Mirai for iOS (hybrid - clouds + water + vanilla blocks)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-hybrid:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Mirai source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Lazurite
+        run: pip install lazurite
+
+      - name: Download shaderc
+        run: |
+          curl -L -o shaderc.zip \
+            "https://github.com/bambosan/bgfx-mcbe/releases/download/binaries/shaderc-linux-x64.zip"
+          unzip shaderc.zip
+          if [ -f shadercRelease ]; then mv shadercRelease shaderc; fi
+          chmod +x shaderc
+
+      - name: Prepare base pack
+        run: |
+          mkdir -p out
+          if [ -d pack ]; then
+            cp -r pack/* out/ || true
+          fi
+          find out -name "*.material.bin" -delete
+
+      - name: Build base profile (iOS)
+        run: |
+          mkdir -p out/renderer/materials
+          python -m lazurite build ./src \
+            -p ios \
+            -o out/renderer/materials \
+            --shaderc ./shaderc
+
+      - name: Build VC subpack (iOS)
+        run: |
+          mkdir -p out/subpacks/vc/renderer/materials
+          python -m lazurite build ./src \
+            -p ios shading vclouds \
+            -o out/subpacks/vc/renderer/materials \
+            --shaderc ./shaderc
+
+      - name: Build NOVC subpack (iOS)
+        run: |
+          mkdir -p out/subpacks/novc/renderer/materials
+          python -m lazurite build ./src \
+            -p ios shading \
+            -o out/subpacks/novc/renderer/materials \
+            --shaderc ./shaderc
+
+      - name: Remove broken block-rendering materials
+        run: |
+          # Удаляем материалы которые ломают блоки на iOS Metal
+          # Движок откатится на ванильные шейдеры для этих материалов
+          echo "=== Before removal ==="
+          find out -name "*.material.bin" | wc -l
+
+          # Эти материалы ломают рендеринг блоков на Metal:
+          for pattern in \
+            "RenderChunkForwardPBR" \
+            "RenderChunkPrepass" \
+            "DeferredShading" \
+            "DeferredShadingBase" \
+            "DeferredMultipass" \
+            "DeferredIndirectSpecular" \
+            "DeferredMixedResolution" \
+            "DeferredTiledMixedRes" \
+            "ActorForwardPBR" \
+            "ActorPrepass" \
+            "ActorMultiTextureForwardPBR" \
+            "ActorBannerForwardPBR" \
+            "ActorPatternForwardPBR" \
+            "ActorPatternGlintForwardPBR" \
+            "ActorGlintPrepass" \
+            "ActorPatternGlintPrepass" \
+            "MeshFallbackForwardPBR" \
+            "MeshFallbackPrepass" \
+            "ItemInHandForwardPBR" \
+            "ItemInHandForwardPBRGlint" \
+            "ItemInHandForwardPBRTextured" \
+            "ItemInHandPrepass" \
+            "TextureShiftRenderChunkPrepass" \
+            "ParticleForwardPBR" \
+            "ParticlePrepass" \
+            "GlowInkSignForwardPBR" \
+            "SingleBlockForwardPBR" \
+            "SkyProbeDeferredShading" \
+            "EndSkyForwardPBR" \
+            "LegacyCubemap" \
+            "LegacyCubemapForwardPBR" \
+            "WeatherForwardPBR" \
+            "WaterPrepass" \
+            "Bloom" \
+            "ColorPostProcessing" \
+            "LightClustering" \
+            "ScreenSpaceReflections" \
+            "WaterExtinction"
+          do
+            find out -name "${pattern}.material.bin" -delete
+          done
+
+          echo "=== After removal (kept only: Clouds, Sun/Moon, Stars, DeferredWater, PopulateVolume) ==="
+          find out -name "*.material.bin"
+
+      - name: Verify pack structure
+        run: |
+          echo "=== Manifest ==="
+          cat out/manifest.json || echo "no manifest"
+          echo "=== Materials count ==="
+          find out -name "*.material.bin" | wc -l
+          echo "=== Total size ==="
+          du -sh out/
+
+      - name: Package as .mcpack
+        run: |
+          cd out
+          zip -r ../mirai-ios-hybrid.mcpack . -x "*.DS_Store"
+          cd ..
+          ls -la mirai-ios-hybrid.mcpack
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mirai-ios-hybrid-mcpack
+          path: mirai-ios-hybrid.mcpack
+          retention-days: 30
