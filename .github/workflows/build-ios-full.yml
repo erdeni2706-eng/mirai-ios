@@ -1,0 +1,90 @@
+name: Build Mirai for iOS (full with textures)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ios-full]
+
+jobs:
+  build-full:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Mirai source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Lazurite
+        run: pip install lazurite
+
+      - name: Download shaderc
+        run: |
+          curl -L -o shaderc.zip \
+            "https://github.com/bambosan/bgfx-mcbe/releases/download/binaries/shaderc-linux-x64.zip"
+          unzip shaderc.zip
+          if [ -f shadercRelease ]; then mv shadercRelease shaderc; fi
+          chmod +x shaderc
+
+      - name: Prepare base pack from existing Mirai pack
+        run: |
+          # Копируем всё содержимое pack/ в out/ - это базовая структура с текстурами, манифестом, конфигами
+          mkdir -p out
+          if [ -d pack ]; then
+            cp -r pack/* out/ || true
+          fi
+          # Удаляем существующие скомпиленные .material.bin (они под Android), пересоберём под iOS
+          find out -name "*.material.bin" -delete
+          ls -la out/
+
+      - name: Build base profile (iOS)
+        run: |
+          mkdir -p out/renderer/materials
+          python -m lazurite build ./src \
+            -p ios \
+            -o out/renderer/materials \
+            --shaderc ./shaderc
+
+      - name: Build "with volumetric clouds" subpack (iOS)
+        run: |
+          mkdir -p out/subpacks/vc/renderer/materials
+          python -m lazurite build ./src \
+            -p ios shading vclouds \
+            -o out/subpacks/vc/renderer/materials \
+            --shaderc ./shaderc
+
+      - name: Build "without volumetric clouds" subpack (iOS)
+        run: |
+          mkdir -p out/subpacks/novc/renderer/materials
+          python -m lazurite build ./src \
+            -p ios shading \
+            -o out/subpacks/novc/renderer/materials \
+            --shaderc ./shaderc
+
+      - name: Verify pack structure
+        run: |
+          echo "=== Top level ==="
+          ls -la out/
+          echo "=== Manifest ==="
+          cat out/manifest.json || echo "no manifest"
+          echo "=== Materials count ==="
+          find out -name "*.material.bin" | wc -l
+          echo "=== Total size ==="
+          du -sh out/
+
+      - name: Package as .mcpack
+        run: |
+          cd out
+          zip -r ../mirai-ios-full.mcpack . -x "*.DS_Store"
+          cd ..
+          ls -la mirai-ios-full.mcpack
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mirai-ios-full-mcpack
+          path: mirai-ios-full.mcpack
+          retention-days: 30
