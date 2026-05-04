@@ -1,0 +1,69 @@
+name: Build Mirai for iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, ios-build]
+
+jobs:
+  build-ios:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Mirai source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Lazurite
+        run: pip install lazurite
+
+      - name: Download shaderc
+        run: |
+          curl -L -o shaderc.zip \
+            "https://github.com/bambosan/bgfx-mcbe/releases/download/binaries/shaderc-linux-x64.zip"
+          unzip shaderc.zip
+          if [ -f shadercRelease ]; then mv shadercRelease shaderc; fi
+          chmod +x shaderc
+          ./shaderc -v || true
+
+      - name: Build base profile (iOS)
+        run: |
+          mkdir -p pack/renderer/materials
+          python -m lazurite build ./src \
+            -p ios \
+            -o pack/renderer/materials \
+            --shaderc ./shaderc
+
+      - name: Build "with volumetric clouds" subpack (iOS)
+        run: |
+          mkdir -p pack/subpacks/vc/renderer/materials
+          python -m lazurite build ./src \
+            -p ios shading vclouds \
+            -o pack/subpacks/vc/renderer/materials \
+            --shaderc ./shaderc
+
+      - name: Build "without volumetric clouds" subpack (iOS)
+        run: |
+          mkdir -p pack/subpacks/novc/renderer/materials
+          python -m lazurite build ./src \
+            -p ios shading \
+            -o pack/subpacks/novc/renderer/materials \
+            --shaderc ./shaderc
+
+      - name: Package as .mcpack
+        run: |
+          cd pack
+          zip -r ../mirai-ios.mcpack . -x "*.DS_Store"
+          cd ..
+          ls -la mirai-ios.mcpack
+
+      - name: Upload .mcpack artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mirai-ios-mcpack
+          path: mirai-ios.mcpack
+          retention-days: 30
