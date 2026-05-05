@@ -80,7 +80,12 @@ void main() {
         v_scatterColor = vec3_splat(1.0);
     }
 
-    gl_Position = jitterVertexPosition(worldPos);
+    #if BGFX_SHADER_LANGUAGE_METAL
+gl_Position = mul(u_viewProj, vec4(worldPos, 1.0));
+#else
+gl_Position = jitterVertexPosition(worldPos);
+#endif
+
 #endif //DEPTH_ONLY_PASS || DEPTH_ONLY_OPAQUE_PASS
 }
 #endif //BGFX_SHADER_TYPE_VERTEX
