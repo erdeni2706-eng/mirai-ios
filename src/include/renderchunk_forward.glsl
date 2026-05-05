@@ -212,7 +212,13 @@ void main() {
         outColor = mix(outColor, linFogColor, borderFog);
     }
 
-    outColor = preExposeLighting(outColor, texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r);
+    #if BGFX_SHADER_LANGUAGE_METAL
+outColor = preExposeLighting(outColor, 1.0);
+#else
+outColor = preExposeLighting(outColor, texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r);
+#endif
+
+
 
     gl_FragData[0] = vec4(outColor, albedo.a);
 #endif //!DEPTH_ONLY_OPAQUE_PASS
