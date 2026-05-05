@@ -220,8 +220,11 @@ outColor = preExposeLighting(outColor, texture2D(s_PreviousFrameAverageLuminance
 
 
 #if BGFX_SHADER_LANGUAGE_METAL
-outColor = albedo.rgb;
+gl_FragData[0] = vec4(1.0, 0.0, 1.0, 1.0);
+#else
+gl_FragData[0] = vec4(outColor, albedo.a);
 #endif
+
 
     gl_FragData[0] = vec4(outColor, albedo.a);
 #endif //!DEPTH_ONLY_OPAQUE_PASS
