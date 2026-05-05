@@ -1,0 +1,102 @@
+name: Build Mirai for iOS (v6 - bisect actors and items)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-v6:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Mirai source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Lazurite
+        run: pip install lazurite
+
+      - name: Download shaderc
+        run: |
+          curl -L -o shaderc.zip \
+            "https://github.com/bambosan/bgfx-mcbe/releases/download/binaries/shaderc-linux-x64.zip"
+          unzip shaderc.zip
+          if [ -f shadercRelease ]; then mv shadercRelease shaderc; fi
+          chmod +x shaderc
+
+      - name: Prepare base pack
+        run: |
+          mkdir -p out
+          if [ -d pack ]; then
+            cp -r pack/* out/ || true
+          fi
+          find out -name "*.material.bin" -delete
+
+      - name: Build base profile (iOS)
+        run: |
+          mkdir -p out/renderer/materials
+          python -m lazurite build ./src \
+            -p ios \
+            -o out/renderer/materials \
+            --shaderc ./shaderc
+
+      - name: Build VC subpack (iOS)
+        run: |
+          mkdir -p out/subpacks/vc/renderer/materials
+          python -m lazurite build ./src \
+            -p ios shading vclouds \
+            -o out/subpacks/vc/renderer/materials \
+            --shaderc ./shaderc
+
+      - name: Build NOVC subpack (iOS)
+        run: |
+          mkdir -p out/subpacks/novc/renderer/materials
+          python -m lazurite build ./src \
+            -p ios shading \
+            -o out/subpacks/novc/renderer/materials \
+            --shaderc ./shaderc
+
+      - name: Bisect - remove HALF of Actor/Item/Mesh/Particle materials
+        run: |
+          echo "=== Before removal ==="
+          find out -name "*.material.bin" | wc -l
+
+          # Удаляем ПЕРВУЮ ПОЛОВИНУ подозреваемых
+          # (моб-связанные материалы - Actor*)
+          for pattern in \
+            "ActorForwardPBR" \
+            "ActorPrepass" \
+            "ActorMultiTextureForwardPBR" \
+            "ActorBannerForwardPBR" \
+            "ActorPatternForwardPBR" \
+            "ActorPatternGlintForwardPBR" \
+            "ActorGlintPrepass" \
+            "ActorPatternGlintPrepass"
+          do
+            find out -name "${pattern}.material.bin" -delete
+          done
+
+          echo "=== After removal ==="
+          echo "Removed actor materials, kept: RenderChunk*, ItemInHand*, Mesh*, Particle*, SingleBlock*"
+          find out -name "*.material.bin" | wc -l
+
+      - name: Verify pack
+        run: |
+          du -sh out/
+
+      - name: Package as .mcpack
+        run: |
+          cd out
+          zip -r ../mirai-ios-v6.mcpack . -x "*.DS_Store"
+          cd ..
+          ls -la mirai-ios-v6.mcpack
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mirai-ios-v6-mcpack
+          path: mirai-ios-v6.mcpack
+          retention-days: 30
