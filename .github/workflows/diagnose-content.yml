@@ -1,0 +1,33 @@
+name: Diagnostic - dump config contents
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dump key config files
+        run: |
+          echo "=== pack/lighting/global.json ==="
+          cat pack/lighting/global.json
+          echo ""
+          echo "=== src/materials/Bloom/config.json ==="
+          cat src/materials/Bloom/config.json
+          echo ""
+          echo "=== src/materials/ColorPostProcessing/config.json ==="
+          cat src/materials/ColorPostProcessing/config.json
+          echo ""
+          echo "=== src/materials/ItemInHandForwardPBR/material.json ==="
+          cat src/materials/ItemInHandForwardPBR/material.json
+          echo ""
+          echo "=== src/materials/ItemInHandForwardPBR/config.json ==="
+          cat src/materials/ItemInHandForwardPBR/config.json
+          echo ""
+          echo "=== src/materials/SkyProbeDeferredShading/config.json ==="
+          cat src/materials/SkyProbeDeferredShading/config.json
+          echo ""
+          echo "=== src/project.json ==="
+          cat src/project.json
