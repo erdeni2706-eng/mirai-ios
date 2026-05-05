@@ -1,0 +1,33 @@
+name: Diagnostic - find pack config files
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find all JSON configs
+        run: |
+          echo "=== All JSON files in repo ==="
+          find . -name "*.json" -not -path "*/node_modules/*" -not -path "*/.git/*" | sort
+          
+          echo ""
+          echo "=== JSON files mentioning bloom/shadow/sky/exposure ==="
+          find . -name "*.json" -exec grep -l -i "bloom\|shadow\|sky\|exposure\|brightness\|tonemap" {} \;
+          
+          echo ""
+          echo "=== Manifest.json content ==="
+          cat manifest.json 2>/dev/null || echo "no manifest.json in root"
+          
+          echo ""
+          echo "=== Files in pack/ directory ==="
+          ls -la pack/ 2>/dev/null || echo "no pack dir"
+          find pack -type f 2>/dev/null | head -50
+          
+          echo ""
+          echo "=== Looking for shader settings/uniforms ==="
+          find src -name "*.json" | head -20
+          find src -name "settings*" -o -name "uniforms*" -o -name "options*" 2>/dev/null
