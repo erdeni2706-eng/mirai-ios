@@ -45,7 +45,12 @@ void main() {
 #endif
 
 #if GEOMETRY_PREPASS_PASS || GEOMETRY_PREPASS_ALPHA_TEST_PASS
-    gl_Position = jitterVertexPosition(worldPos);
+    #if BGFX_SHADER_LANGUAGE_METAL
+gl_Position = mul(u_viewProj, vec4(worldPos, 1.0));
+#else
+gl_Position = jitterVertexPosition(worldPos);
+#endif
+
 #else
     gl_Position = mul(u_viewProj, vec4(worldPos, 1.0));
 #endif
