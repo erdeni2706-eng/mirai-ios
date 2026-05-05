@@ -90,7 +90,12 @@ void main() {
 #if THRESHOLDED_DOWN_SAMPLE_PASS
     vec2 ofs = (ViewportScale.xy * 1.5) * (vec2_splat(2.0) / ViewportScale.zw);
 
-    float brightnessThreshold = BloomParams.y * texture2D(s_AverageLuminance, vec2_splat(0.5)).r;
+    #if BGFX_SHADER_LANGUAGE_METAL
+float brightnessThreshold = BloomParams.y * 0.18;
+#else
+float brightnessThreshold = BloomParams.y * texture2D(s_AverageLuminance, vec2_splat(0.5)).r;
+#endif
+
 
     vec4 sample0 = texture2D(s_BlurPyramidTexture, min(v_texcoord0, uv));
     float luminance0 = luminance(sample0.rgb);
