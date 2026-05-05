@@ -102,13 +102,23 @@ void main() {
     inputColor = max(inputColor, vec3_splat(0.0)); // make sure there's no negative value
 
     // deobfuscated from vanilla material
+    #if BGFX_SHADER_LANGUAGE_METAL
+    if (false) {
+#else
     if (TonemapParams0.b > 0.0) {
+#endif
+
         float preExposureLum = texture2D(s_PreExposureLuminance, vec2_splat(0.5)).r;
         inputColor = inputColor / vec3_splat((MIDDLE_GRAY / preExposureLum) + EPSILON);
     }
 
     float refLuminance = MIDDLE_GRAY;
+    #if BGFX_SHADER_LANGUAGE_METAL
+    if (false) {
+#else
     if (ExposureCompensation.b > 0.5) {
+#endif
+
         float avgLum = texture2D(s_AverageLuminance, vec2_splat(0.5)).r;
         refLuminance = clamp(avgLum, LuminanceMinMaxAndWhitePointAndMinWhitePoint.r, LuminanceMinMaxAndWhitePointAndMinWhitePoint.g);
     }
