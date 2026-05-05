@@ -1,0 +1,23 @@
+name: Diagnostic - list all Mirai materials
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: List ALL material source files
+        run: |
+          echo "=== All .material directories in src/ ==="
+          find src -type d -name "*.material" | sort
+
+          echo ""
+          echo "=== All RenderChunk-related files ==="
+          find src -iname "*RenderChunk*" -type d
+
+          echo ""
+          echo "=== All files matching block-related patterns ==="
+          find src -type d \( -iname "*Block*" -o -iname "*Chunk*" -o -iname "*PBR*" \) | sort
