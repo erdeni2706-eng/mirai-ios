@@ -226,7 +226,6 @@ gl_FragData[0] = vec4(outColor, albedo.a);
 #endif
 
 
-    gl_FragData[0] = vec4(outColor, albedo.a);
 #endif //!DEPTH_ONLY_OPAQUE_PASS
 }
 
